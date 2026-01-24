@@ -26,7 +26,8 @@ public interface IngresoRepositoryEscritorio extends JpaRepository<Ingreso, Inte
     @Query("SELECT i.placa FROM Ingreso i WHERE i.estado = 'Activo'")
     List<String> findPlacasActivas();
 
-    List<Ingreso> findByEstado(String estado);
+    //Corregido para que imprima en orden alfabetico
+    List<Ingreso> findByEstadoOrderByPlacaAsc(String estado);
 
     //Contar vehículos activos en el parqueadero
     @Query("SELECT new com.gesnnova.gserver.dto.ConteoActivoDTO(" +

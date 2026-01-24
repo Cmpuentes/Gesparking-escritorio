@@ -81,7 +81,7 @@ public class IngresoControllerEscritorio {
 
     @GetMapping("/arqueo")
     public ResponseEntity<List<Ingreso>> obtenerIngresosActivos() {
-        List<Ingreso> activos = ingresoRepositoryEscritorio.findByEstado("Activo");
+        List<Ingreso> activos = ingresoRepositoryEscritorio.findByEstadoOrderByPlacaAsc("Activo");
 
         if (activos.isEmpty()) {
             return ResponseEntity.noContent().build(); // 204 si no hay activos
