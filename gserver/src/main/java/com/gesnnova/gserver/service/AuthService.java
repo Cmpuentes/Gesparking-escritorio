@@ -43,10 +43,11 @@ public class AuthService {
 
     @Transactional
     public LoginResponse login(LoginReques request) {
+
         LoginResponse response = new LoginResponse();
 
-        // 1. Buscar empleado por login
-        var empleadoOpt = empleadoRepository.findByLogin(request.getLogin());
+        Optional<Empleado> empleadoOpt =
+                empleadoRepository.findByLogin(request.getLogin());
 
         if (empleadoOpt.isEmpty()) {
             response.setSuccess(false);
@@ -55,90 +56,109 @@ public class AuthService {
         }
 
         Empleado empleado = empleadoOpt.get();
+        Integer idEmpresa = empleado.getEmpresa().getIdempresa();
 
-        // 2. Validar contraseña
         if (!empleado.getPassword().equals(request.getPassword())) {
             response.setSuccess(false);
             response.setMessage("Credenciales inválidas");
             return response;
         }
 
-        // 3. Validar estado del empleado
         if (!"Activo".equalsIgnoreCase(empleado.getEstado())) {
             response.setSuccess(false);
             response.setMessage("El usuario está inactivo");
             return response;
         }
 
-        // 4. Verificar sesión existente
-        var sesionOpt = sesionRepository.findByIdempleado(empleado.getIdempleado());
-        Sesiones sesion;
+        // ===============================
+        // SESIÓN (POR EMPRESA)
+        // ===============================
+        Sesiones sesion = sesionRepository
+                .findByIdempleadoAndIdEmpresa(
+                        empleado.getIdempleado(), idEmpresa
+                )
+                .filter(s -> "activo".equalsIgnoreCase(s.getEstado()))
+                .orElseGet(() -> {
+                    sesionRepository.deleteByIdempleadoAndIdEmpresa(
+                            empleado.getIdempleado(), idEmpresa
+                    );
 
-        if (sesionOpt.isPresent() && "activo".equalsIgnoreCase(sesionOpt.get().getEstado())) {
-            // Reutilizar sesión activa
-            sesion = sesionOpt.get();
-            sesion.setExpiracion(LocalDateTime.now().plusHours(48));
-            sesionRepository.save(sesion);
-        } else {
-            // Eliminar sesiones viejas y crear nueva
-            sesionRepository.deleteByIdempleado(empleado.getIdempleado());
+                    Sesiones s = new Sesiones();
+                    s.setIdempleado(empleado.getIdempleado());
+                    s.setIdEmpresa(idEmpresa);
+                    s.setToken(generateToken());
+                    s.setFecha_inicio(LocalDateTime.now());
+                    s.setEstado("activo");
+                    return s;
+                });
 
-            sesion = new Sesiones();
-            sesion.setIdempleado(empleado.getIdempleado());
-            sesion.setToken(generateToken());
-            sesion.setFecha_inicio(LocalDateTime.now());
-            sesion.setExpiracion(LocalDateTime.now().plusHours(48));
-            sesion.setEstado("activo");
+        sesion.setExpiracion(LocalDateTime.now().plusHours(48));
+        sesionRepository.save(sesion);
 
-            sesion = sesionRepository.save(sesion);
-        }
+        // ===============================
+        // TURNO (POR EMPRESA)
+        // ===============================
+        String nombreEmpleado =
+                empleado.getNombres() + " " + empleado.getApellidos();
 
-        // 5. Buscar si ya hay turno activo para este empleado
-        Optional<InicioTurno> turnoActivoOpt =
-                inicioTurnoRepository.findByEmpleadoAndEstado(
-                        empleado.getNombres() + " " + empleado.getApellidos(),
-                        "Activo"
-                );
+        InicioTurno inicioTurno = inicioTurnoRepository
+                .findByEmpleadoAndIdEmpresaAndEstado(
+                        nombreEmpleado, idEmpresa, "Activo"
+                )
+                .orElseGet(() -> {
 
-        InicioTurno inicioTurno;
+                    Integer ultimo =
+                            inicioTurnoRepository.obtenerUltimoNumeroTurnoPorEmpresa(idEmpresa);
 
-        if (turnoActivoOpt.isPresent()) {
-            // ✅ Reutilizar turno activo
-            inicioTurno = turnoActivoOpt.get();
-        } else {
-            // ❌ No hay turno activo → crear uno nuevo
-            Integer ultimoTurno = inicioTurnoRepository.obtenerUltimoNumeroTurno();
-            int numeroTurno = (ultimoTurno != null ? ultimoTurno : 0) + 1;
+                    int numeroTurno = (ultimo != null ? ultimo : 0) + 1;
 
-            inicioTurno = new InicioTurno();
-            inicioTurno.setEmpleado(empleado.getNombres() + " " + empleado.getApellidos());
-            inicioTurno.setFecha_inicio(request.getFecha_inicio());
+                    InicioTurno t = new InicioTurno();
+                    t.setEmpleado(nombreEmpleado);
+                    t.setIdEmpresa(idEmpresa);
+                    t.setNumeroTurno(numeroTurno);
+                    t.setEstado("Activo");
 
-            String fechaHoy = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-            inicioTurno.setTurno(request.getTurno() + " " + fechaHoy);
-            inicioTurno.setNumeroTurno(numeroTurno);
-            inicioTurno.setEstado("Activo");
+                    // 🔥 FECHA GENERADA EN BACKEND
+                    DateTimeFormatter fmt =
+                            DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm a");
 
-            inicioTurnoRepository.save(inicioTurno);
-        }
+                    t.setFechaInicio(LocalDateTime.now().format(fmt));
 
-        // 6. Preparar respuesta
+                    // 🔥 NOMBRE DEL TURNO GENERADO EN BACKEND
+                    String fechaHoy = LocalDate.now()
+                            .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+
+                    t.setTurno("Turno " + numeroTurno + " " + fechaHoy);
+
+                    return inicioTurnoRepository.save(t);
+                });
+
+        // ===============================
+        // RESPUESTA
+        // ===============================
         response.setSuccess(true);
         response.setMessage("Login exitoso");
         response.setToken(sesion.getToken());
-        response.setNombreCompleto(empleado.getNombres() + " " + empleado.getApellidos());
-        response.setFecha_inicio(inicioTurno.getFecha_inicio());
+        response.setNombreCompleto(nombreEmpleado);
+        response.setFecha_inicio(inicioTurno.getFechaInicio());
         response.setTurno(inicioTurno.getTurno());
         response.setNumero_turno(inicioTurno.getNumeroTurno());
+        response.setIdEmpresa(idEmpresa);
+        response.setNombreEmpresa(empleado.getEmpresa().getNombre());
 
         return response;
     }
 
+
+
+
     //CHECK SESSION PARA ESCRITORIO
     public LoginResponse checkSessionFull(String token) {
+
         LoginResponse response = new LoginResponse();
 
-        var sesionOpt = sesionRepository.findByToken(token);
+        Optional<Sesiones> sesionOpt = sesionRepository.findByToken(token);
+
         if (sesionOpt.isEmpty() || !"activo".equalsIgnoreCase(sesionOpt.get().getEstado())) {
             response.setSuccess(false);
             response.setMessage("Sesión inválida o expirada");
@@ -146,7 +166,10 @@ public class AuthService {
         }
 
         Sesiones sesion = sesionOpt.get();
-        Empleado empleado = empleadoRepository.findById(sesion.getIdempleado()).orElse(null);
+
+        Empleado empleado = empleadoRepository
+                .findById(sesion.getIdempleado())
+                .orElse(null);
 
         if (empleado == null) {
             response.setSuccess(false);
@@ -154,27 +177,38 @@ public class AuthService {
             return response;
         }
 
-        // Buscar turno activo del empleado
-        Optional<InicioTurno> turnoOpt = inicioTurnoRepository
-                .findByEmpleadoAndEstado(empleado.getNombres() + " " + empleado.getApellidos(), "Activo");
+        Integer idEmpresa = sesion.getIdEmpresa();
+        String nombreEmpleado =
+                empleado.getNombres() + " " + empleado.getApellidos();
+
+        // 🔥 TURNO SOLO DE ESA EMPRESA
+        Optional<InicioTurno> turnoOpt =
+                inicioTurnoRepository.findByEmpleadoAndIdEmpresaAndEstado(
+                        nombreEmpleado,
+                        idEmpresa,
+                        "activo"
+                );
 
         if (turnoOpt.isEmpty()) {
             response.setSuccess(false);
-            response.setMessage("No hay turno activo para este empleado");
+            response.setMessage("No hay turno activo para esta empresa");
             return response;
         }
 
         InicioTurno turno = turnoOpt.get();
 
-        // Construir respuesta completa
+        // 🎁 RESPUESTA COMPLETA
         response.setSuccess(true);
         response.setMessage("Sesión válida");
         response.setToken(sesion.getToken());
-        response.setNombreCompleto(empleado.getNombres() + " " + empleado.getApellidos());
-        response.setFecha_inicio(turno.getFecha_inicio());
+        response.setNombreCompleto(nombreEmpleado);
+        response.setFecha_inicio(turno.getFechaInicio());
         response.setTurno(turno.getTurno());
         response.setNumero_turno(turno.getNumeroTurno());
+        response.setIdEmpresa(idEmpresa);
+        response.setNombreEmpresa(empleado.getEmpresa().getNombre());
 
         return response;
     }
+
 }

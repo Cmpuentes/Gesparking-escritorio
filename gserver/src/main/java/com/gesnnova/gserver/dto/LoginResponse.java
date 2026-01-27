@@ -1,5 +1,8 @@
 package com.gesnnova.gserver.dto;
 
+import lombok.Data;
+
+@Data
 public class LoginResponse {
     private boolean success;
     private String message;
@@ -8,60 +11,9 @@ public class LoginResponse {
     private String fecha_inicio; // Ahora es String, no LocalDateTime
     private String turno;
     private int numero_turno;
+    private int idEmpresa;
+    private String nombreEmpresa;
 
-    public boolean isSuccess() {
-        return success;
-    }
 
-    public void setSuccess(boolean success) {
-        this.success = success;
-    }
 
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public String getToken() {
-        return token;
-    }
-
-    public void setToken(String token) {
-        this.token = token;
-    }
-
-    public String getNombreCompleto() {
-        return nombreCompleto;
-    }
-
-    public void setNombreCompleto(String nombreCompleto) {
-        this.nombreCompleto = nombreCompleto;
-    }
-
-    public String getFecha_inicio() {
-        return fecha_inicio;
-    }
-
-    public void setFecha_inicio(String fecha_inicio) {
-        this.fecha_inicio = fecha_inicio;
-    }
-
-    public String getTurno() {
-        return turno;
-    }
-
-    public void setTurno(String turno) {
-        this.turno = turno;
-    }
-
-    public int getNumero_turno() {
-        return numero_turno;
-    }
-
-    public void setNumero_turno(int numero_turno) {
-        this.numero_turno = numero_turno;
-    }
 }

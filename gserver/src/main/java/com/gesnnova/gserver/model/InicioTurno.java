@@ -1,67 +1,44 @@
 package com.gesnnova.gserver.model;
 
 import jakarta.persistence.*;
+import lombok.Data;
 
+import java.time.LocalDateTime;
+
+@Data
 @Entity
-@Table(name = "inicio_turno")
+@Table(
+        name = "inicio_turno",
+        indexes = {
+                @Index(name = "idx_turno_empresa", columnList = "idempresa"),
+                @Index(name = "idx_turno_empresa_estado", columnList = "idempresa, estado"),
+                @Index(name = "idx_turno_empresa_numero", columnList = "idempresa, numero_turno")
+        }
+)
 public class InicioTurno {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer idturno;
 
+    @Column(nullable = false)
     private String empleado;
-    private String fecha_inicio;
+
+    @Column(name = "fecha_inicio", nullable = false)
+    private String fechaInicio;
+
+    @Column(nullable = false)
     private String turno;
-    @Column(name = "numero_turno")
+
+    @Column(name = "numero_turno", nullable = false)
     private int numeroTurno;
+
+    @Column(nullable = false)
     private String estado;
 
-    public Integer getIdturno() {
-        return idturno;
-    }
-
-    public void setIdturno(Integer idturno) {
-        this.idturno = idturno;
-    }
-
-    public String getEmpleado() {
-        return empleado;
-    }
-
-    public void setEmpleado(String empleado) {
-        this.empleado = empleado;
-    }
-
-    public String getFecha_inicio() {
-        return fecha_inicio;
-    }
-
-    public void setFecha_inicio(String fecha_inicio) {
-        this.fecha_inicio = fecha_inicio;
-    }
-
-    public String getTurno() {
-        return turno;
-    }
-
-    public void setTurno(String turno) {
-        this.turno = turno;
-    }
-
-    public int getNumeroTurno() {
-        return numeroTurno;
-    }
-
-    public void setNumeroTurno(int numeroTurno) {
-        this.numeroTurno = numeroTurno;
-    }
-
-    public String getEstado() {
-        return estado;
-    }
-
-    public void setEstado(String estado) {
-        this.estado = estado;
-    }
+    @Column(name = "idempresa", nullable = false)
+    private Integer idEmpresa;
 }
+
+
+
