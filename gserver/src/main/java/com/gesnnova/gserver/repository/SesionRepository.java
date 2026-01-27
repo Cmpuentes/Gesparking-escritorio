@@ -8,8 +8,11 @@ import java.util.Optional;
 
 @Repository
 public interface SesionRepository extends JpaRepository<Sesiones, Integer> {
-    Optional<Sesiones> findByIdempleado(Integer idempleado);
+
+    Optional<Sesiones> findByIdempleadoAndIdEmpresa(Integer idempleado, Integer idEmpresa);
+
     Optional<Sesiones> findByToken(String token);
 
-    void deleteByIdempleado(Integer idempleado);
+    void deleteByIdempleadoAndIdEmpresa(Integer idempleado, Integer idEmpresa);
 }
+
